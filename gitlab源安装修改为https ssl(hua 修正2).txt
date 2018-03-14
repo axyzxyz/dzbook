@@ -1,0 +1,133 @@
+前言参考方法：
+https://blue.cse.buffalo.edu/gitlab/help/install/installation.md#using-https
+
+Using HTTPS
+
+To use GitLab with HTTPS:
+1.In gitlab.yml: 
+	1.Set the port option in section 1 to 443.
+	2.Set the https option in section 1 to true.
+
+2.In the config.yml of gitlab-shell: 
+	1.Set gitlab_url option to the HTTPS endpoint of GitLab (e.g. https://git.example.com).
+	2.Set the certificates using either the ca_file or ca_path option.
+
+3.Use the gitlab-ssl Nginx example config instead of the gitlab config. 
+	1.Update YOUR_SERVER_FQDN.
+	2.Update ssl_certificate and ssl_certificate_key.
+	3.Review the configuration file and consider applying other security and performance enhancing features
+
+
+
+
+
+
+
+
+#一、生成证书
+mkdir /opt/nginx/ssl
+cd /opt/nginx/ssl/
+openssl req -newkey rsa:2048 -x509 -nodes -days 3560 -out gitlab.crt -keyout gitlab.key
+chmod o-r gitlab.key
+
+
+二、修改nginx
+
+vim nginx.conf
+
+server {
+
+    listen       80;
+    listen	 443 ssl;
+    #ssl on;
+    ...
+    index index.php
+    ssl_certificate  /opt/nginx/ssl/gitlab.crt;
+    ssl_certificate_key /opt/nginx/ssl/gitlab.key;
+...
+
+}
+
+注：如果配置上ssl on那么只有https可以访问，如果http和https都能访问的话把ssl on去掉，否则会报如下错误：
+#说是http的请求被发送到https的端口上去了，所以才会出现这样的问题
+#---------------------------------
+#http访问的时候，报错如下：
+#400 Bad Request
+#The plain HTTP requset was sent to HTTPS port
+...
+#-----------------------------------
+
+#修改gitlab配置端口
+cp gitlab.conf gitlab.conf.bak
+vim gitlab.conf
+ 51   listen 0.0.0.0:443 default_server;
+ 52     ssl_certificate  /opt/nginx/ssl/gitlab.crt;
+ 53     ssl_certificate_key /opt/nginx/ssl/gitlab.key;
+
+
+
+/opt/nginx/sbin/nginx -t
+#重启nginx
+ps -ef |grep nginx
+pkill nginx
+pkill nginx
+ps -ef |grep nginx
+/opt/nginx/sbin/nginx -c /opt/nginx/ssl/nginx.conf
+
+
+
+
+
+三、配置gitlab
+cd /home/git/gitlab/config
+cp gitlab.yml gitlab.yml.2016.10.13
+
+
+25   #
+ 26   # 1. GitLab app settings
+ 27   # ==========================
+ 28
+ 29   ## GitLab settings
+ 30   gitlab:
+ 31     ## Web server settings (note: host is the FQDN, do not include http://)
+ 32     #host: localhost
+ 33     host: 192.168.0.75
+ 34     port: 443 # Set to 443 if using HTTPS, see installation.md#using-https for additional HTTPS configuration details
+ 35     https: true # Set to true if using HTTPS, see installation.md#using-https for additional HTTPS configuration detai 
+
+437     host: 192.168.0.75
+438     port: 443
+
+
+cd /home/git/gitlab-shell/
+vim config.yml  #可以参数cat config.yml.example修改
+  4 gitlab_url: https://192.168.0.75/ #此行改为https
+  5 http_settings:
+  6   self_signed_cert: true         #此行把false改为true
+  7   ca_path: "/opt/nginx/ssl"
+  8 repos_path: "/home/git/repositories/"
+
+
+附config.yml.example配置里
+http_settings:修改选项有
+# See installation.md#using-https for additional HTTPS configuration details.
+http_settings:
+#  user: someone
+#  password: somepass
+#  ca_file: /etc/ssl/cert.pem
+#  ca_path: /etc/pki/tls/certs
+  self_signed_cert: false
+
+
+
+/etc/init.d/gitlab restart
+
+
+
+#测试
+https://192.168.0.75
+
+git push也成功
+
+                   fly 飞翔
+		  Q：715031064

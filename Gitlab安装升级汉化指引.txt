@@ -1,0 +1,2 @@
+可直接访问网址查看最新版操作：
+https://github.com/marbleqi/gitlab-ce-zh
